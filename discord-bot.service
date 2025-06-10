@@ -1,0 +1,17 @@
+[Unit]
+Description=Discord LeetCode Tracker Bot
+After=network.target
+
+[Service]
+Type=simple
+User=opc
+Environment="DISCORD_TOKEN=your_token_here"
+Environment="LEETCODE_SESSION=your_session_here"
+Environment="CSRF_TOKEN=your_csrf_here"
+WorkingDirectory=/home/opc/d-leetcode-bot
+ExecStart=/home/opc/d-leetcode-bot/gradlew run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 

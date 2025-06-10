@@ -1,6 +1,81 @@
-# LeetCode Discord Bot
+# Discord LeetCode Tracker Bot
 
-A Discord bot that tracks users' LeetCode submissions and announces when they solve problems.
+A Discord bot that tracks LeetCode submissions for server members.
+
+## Oracle Cloud Deployment Instructions
+
+### 1. Set Up Oracle Cloud Instance
+
+1. Sign up for Oracle Cloud Free Tier
+2. Create a new Compute Instance:
+   - Select "Always Free" eligible options
+   - Choose Oracle Linux 8
+   - Use the default "VM.Standard.E2.1.Micro" shape
+   - Generate or upload SSH keys
+
+### 2. Initial Server Setup
+
+1. Connect to your instance:
+   ```bash
+   ssh -i <path_to_private_key> opc@<your_instance_ip>
+   ```
+
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/syio27/ds-leetcode-tracker-bot.git
+   cd d-leetcode-bot
+   ```
+
+### 3. Configure Environment Variables
+
+Edit the systemd service file (`discord-bot.service`) and replace the environment variables:
+```bash
+sudo nano /etc/systemd/system/discord-bot.service
+```
+
+Update these lines with your actual values:
+```
+Environment="DISCORD_TOKEN=your_token_here"
+Environment="LEETCODE_SESSION=your_session_here"
+Environment="CSRF_TOKEN=your_csrf_here"
+```
+
+### 4. Deploy the Bot
+
+1. Make the deployment script executable:
+   ```bash
+   chmod +x deploy.sh
+   ```
+
+2. Run the deployment script:
+   ```bash
+   ./deploy.sh
+   ```
+
+### 5. Manage the Bot Service
+
+- Check status: `sudo systemctl status discord-bot`
+- View logs: `sudo journalctl -u discord-bot -f`
+- Start service: `sudo systemctl start discord-bot`
+- Stop service: `sudo systemctl stop discord-bot`
+- Restart service: `sudo systemctl restart discord-bot`
+
+### 6. Firewall Configuration
+
+Ensure your Oracle Cloud security list allows:
+- Outbound traffic to Discord API (443/TCP)
+- Outbound traffic to LeetCode API (443/TCP)
+
+## Development
+
+To run the bot locally:
+```bash
+./gradlew run
+```
+
+## License
+
+[Add your license information here]
 
 ## Features
 - Monitors LeetCode submissions for specified users
