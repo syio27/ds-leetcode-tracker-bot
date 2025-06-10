@@ -82,7 +82,12 @@ do
     esac
 done
 
-APP_HOME=$( cd "${APP_HOME:-./}" && pwd -P ) || exit
+# Special handling for Replit environment
+if [ -n "$REPL_SLUG" ]; then
+    APP_HOME="/home/runner/$REPL_SLUG"
+else
+    APP_HOME=$( cd "${APP_HOME:-./}" && pwd -P ) || exit
+fi
 
 APP_NAME="Gradle"
 APP_BASE_NAME=${0##*/}
