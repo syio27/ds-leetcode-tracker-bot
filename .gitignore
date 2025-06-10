@@ -36,8 +36,4 @@ hs_err_pid*
 # Environment files
 .env
 *.properties
-!src/main/resources/config.properties
-
-# Replit specific
-.replit
-replit.nix 
+!src/main/resources/config.properties 
