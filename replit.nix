@@ -1,4 +1,4 @@
-{
+{pkgs}: {
   description = "Java Discord Bot";
   deps = [
     pkgs.graalvm17-ce
