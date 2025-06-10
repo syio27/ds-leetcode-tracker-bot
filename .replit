@@ -1,5 +1,5 @@
-run = "./gradlew run"
-hidden = [".gradle", "build", "gradle"]
+run = ["./gradlew", "run"]
+hidden = [".gradle", "build"]
 
 [packager]
 language = "java"
@@ -23,7 +23,7 @@ channel = "stable-22_11"
 support = true
 
 [debugger.compile]
-command = "./gradlew build"
+command = ["./gradlew", "build"]
 
 [debugger.interactive]
 transport = "localhost:0"
