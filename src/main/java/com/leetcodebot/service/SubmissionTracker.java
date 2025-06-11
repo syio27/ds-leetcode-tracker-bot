@@ -169,12 +169,14 @@ public class SubmissionTracker {
             System.out.println("Received " + submissions.size() + " submissions from LeetCode");
 
             LocalDateTime lastCheck = user.getLastCheckTime();
-            LocalDateTime currentTime = LocalDateTime.now();
+            LocalDateTime currentTime = LocalDateTime.now(timezone);
 
             System.out.println("Last check time: " + lastCheck);
 
             // Process submissions in chronological order (oldest first)
             Collections.reverse(submissions);
+            
+            boolean hasNewSubmissions = false;
             
             for (LeetCodeService.Submission submission : submissions) {
                 // Convert LeetCode timestamp (seconds) to our timezone
@@ -188,6 +190,7 @@ public class SubmissionTracker {
                 
                 // Only process submissions that are newer than the last check
                 if (submissionTime.isAfter(lastCheck)) {
+                    hasNewSubmissions = true;
                     System.out.println("New submission found!");
                     
                     Optional<ProblemSolveHistory> historyOpt = solveHistoryRepository.findByUserAndProblem(
@@ -244,12 +247,17 @@ public class SubmissionTracker {
                 }
             }
             
-            // Update last check time
-            entityManager.getTransaction().begin();
-            user.setLastCheckTime(currentTime);
-            entityManager.merge(user);
-            entityManager.getTransaction().commit();
-            System.out.println("Updated last check time to: " + currentTime);
+            // Only update last check time if we actually processed submissions
+            if (hasNewSubmissions) {
+                // Update last check time
+                entityManager.getTransaction().begin();
+                user.setLastCheckTime(currentTime);
+                entityManager.merge(user);
+                entityManager.getTransaction().commit();
+                System.out.println("Updated last check time to: " + currentTime);
+            } else {
+                System.out.println("No new submissions found, keeping last check time as: " + lastCheck);
+            }
             
         } catch (Exception e) {
             System.err.println("Error checking submissions for " + username + ": " + e.getMessage());

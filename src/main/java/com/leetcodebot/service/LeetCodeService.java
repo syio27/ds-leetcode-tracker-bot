@@ -158,7 +158,7 @@ public class LeetCodeService {
     public List<Submission> getRecentSubmissions(String username) throws IOException {
         ObjectNode variables = objectMapper.createObjectNode();
         variables.put("username", username);
-        variables.put("limit", 2);
+        variables.put("limit", 5);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("query", recentSubmissionsQuery);
@@ -185,43 +185,18 @@ public class LeetCodeService {
         Response response = null;
         try {
             System.out.println("Making request to LeetCode API...");
-            System.out.println("Request headers: " + request.headers());
-            
             response = client.newCall(request).execute();
+            String responseBody = response.body().string();
             
             if (!response.isSuccessful()) {
-                String responseBody = response.body() != null ? response.body().string() : "no body";
-                System.err.println("Error response from LeetCode API:");
-                System.err.println("Status code: " + response.code());
+                System.err.println("LeetCode API request failed with status: " + response.code());
                 System.err.println("Response body: " + responseBody);
-                System.err.println("Request headers: " + request.headers());
-                
-                if (response.code() == 403) {
-                    System.err.println("Authentication error. Trying to refresh tokens...");
-                    refreshTokensIfNeeded();
-                    request = request.newBuilder()
-                        .header("Cookie", String.format("csrftoken=%s; LEETCODE_SESSION=%s", csrfToken, leetcodeSession))
-                        .header("X-Csrftoken", csrfToken)
-                        .build();
-                    
-                    if (response != null) {
-                        response.close();
-                    }
-                    response = client.newCall(request).execute();
-                }
-                
-                if (!response.isSuccessful()) {
-                    throw new IOException("Unexpected response code: " + response.code());
-                }
+                throw new IOException("LeetCode API request failed with status: " + response.code());
             }
 
-            String responseBody = response.body().string();
-            System.out.println("Response from LeetCode: " + responseBody);
-            
             JsonNode responseJson = objectMapper.readTree(responseBody);
-            
-            // Check for errors in the response
             JsonNode errors = responseJson.path("errors");
+            
             if (!errors.isMissingNode()) {
                 String errorMessage = errors.path(0).path("message").asText("Unknown error");
                 throw new IOException("LeetCode API error: " + errorMessage);
