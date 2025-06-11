@@ -1,44 +1,44 @@
 package com.leetcodebot.model;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "tracked_users")
 public class TrackedUser {
+    private static final ZoneId TIMEZONE = ZoneId.of("Europe/Warsaw");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true, nullable = false)
     private String username;
 
     @ElementCollection
-    @CollectionTable(name = "user_channels", 
-        joinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(name = "user_channels", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "channel_id")
     private Set<String> channelIds = new HashSet<>();
 
     @Column(nullable = false)
-    private LocalDateTime lastCheckTime;
-
-    @Column(nullable = false)
     private boolean active = true;
 
+    @Column(nullable = false)
+    private LocalDateTime lastCheckTime;
+
     public TrackedUser() {
+        this.lastCheckTime = LocalDateTime.now(TIMEZONE);
     }
 
     public TrackedUser(String username, String channelId) {
         this.username = username;
         this.channelIds = new HashSet<>();
         this.channelIds.add(channelId);
-        this.lastCheckTime = LocalDateTime.now();
-        this.active = true;
+        this.lastCheckTime = LocalDateTime.now(TIMEZONE);
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -71,6 +71,14 @@ public class TrackedUser {
         this.channelIds.remove(channelId);
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public LocalDateTime getLastCheckTime() {
         return lastCheckTime;
     }
@@ -79,11 +87,7 @@ public class TrackedUser {
         this.lastCheckTime = lastCheckTime;
     }
 
-    public boolean isActive() {
-        return active;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
+    public void updateLastCheckTime() {
+        this.lastCheckTime = LocalDateTime.now(TIMEZONE);
     }
 } 

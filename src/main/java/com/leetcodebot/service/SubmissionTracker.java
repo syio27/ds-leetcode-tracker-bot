@@ -177,13 +177,14 @@ public class SubmissionTracker {
             Collections.reverse(submissions);
             
             for (LeetCodeService.Submission submission : submissions) {
-                LocalDateTime submissionTime = LocalDateTime.ofInstant(
-                    Instant.ofEpochSecond(submission.getSubmitTime()), 
-                    timezone
-                );
+                // Convert LeetCode timestamp (seconds) to our timezone
+                LocalDateTime submissionTime = Instant.ofEpochSecond(submission.getSubmitTime())
+                    .atZone(timezone)
+                    .toLocalDateTime();
                 
                 System.out.println("Processing submission: " + submission.getTitle() + 
-                    " submitted at: " + submissionTime);
+                    " submitted at: " + submissionTime + " (Europe/Warsaw)");
+                System.out.println("Last check time was: " + lastCheck + " (Europe/Warsaw)");
                 
                 // Only process submissions that are newer than the last check
                 if (submissionTime.isAfter(lastCheck)) {

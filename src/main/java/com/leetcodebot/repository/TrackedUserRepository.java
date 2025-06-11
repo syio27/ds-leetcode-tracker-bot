@@ -7,10 +7,13 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
 public class TrackedUserRepository {
+    
+    private static final ZoneId TIMEZONE = ZoneId.of("Europe/Warsaw");
     
     public void saveUser(TrackedUser user) {
         EntityTransaction transaction = null;
