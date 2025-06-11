@@ -108,9 +108,16 @@ public class SubmissionTracker {
     }
 
     public void untrackUser(String username, MessageChannel channel) {
-        Optional<TrackedUser> userOpt = userRepository.findByUsername(username);
-        if (userOpt.isPresent()) {
-            TrackedUser user = userOpt.get();
+        EntityManager entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
+        try {
+            // Use LEFT JOIN FETCH to eagerly load channelIds
+            TrackedUser user = entityManager.createQuery(
+                "FROM TrackedUser u LEFT JOIN FETCH u.channelIds WHERE u.username = :username AND u.active = true",
+                TrackedUser.class)
+                .setParameter("username", username)
+                .getSingleResult();
+
+            entityManager.getTransaction().begin();
             user.removeChannelId(channel.getId());
             
             if (user.getChannelIds().isEmpty()) {
@@ -120,7 +127,19 @@ public class SubmissionTracker {
                 System.out.println("Stopped tracking user: " + username);
             }
             
-            userRepository.saveUser(user);
+            entityManager.merge(user);
+            entityManager.getTransaction().commit();
+            
+        } catch (Exception e) {
+            if (entityManager.getTransaction().isActive()) {
+                entityManager.getTransaction().rollback();
+            }
+            System.err.println("Error untracking user " + username + ": " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (entityManager != null) {
+                entityManager.close();
+            }
         }
     }
 
