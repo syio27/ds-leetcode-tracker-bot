@@ -69,25 +69,42 @@ public class SubmissionTracker {
     }
 
     public void trackUser(String username, MessageChannel channel) {
-        Optional<TrackedUser> existingUser = userRepository.findByUsername(username);
-        TrackedUser user;
-        
-        if (existingUser.isPresent()) {
-            user = existingUser.get();
-            user.addChannelId(channel.getId());
-            userRepository.saveUser(user);
-        } else {
-            user = new TrackedUser(username, channel.getId());
-            userRepository.saveUser(user);
+        EntityManager entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
+        try {
+            entityManager.getTransaction().begin();
+            Optional<TrackedUser> existingUser = Optional.ofNullable(
+                entityManager.createQuery("FROM TrackedUser WHERE username = :username", TrackedUser.class)
+                    .setParameter("username", username)
+                    .getResultStream()
+                    .findFirst()
+                    .orElse(null));
+            
+            TrackedUser user;
+            if (existingUser.isPresent()) {
+                user = existingUser.get();
+                user.addChannelId(channel.getId());
+                user = entityManager.merge(user);
+            } else {
+                user = new TrackedUser(username, channel.getId());
+                entityManager.persist(user);
+            }
+            entityManager.getTransaction().commit();
+            
+            // Start tracking in DailyStatisticsService
+            dailyStatisticsService.trackUserInChannel(username, channel);
+            
+            System.out.println("Started tracking user: " + username + " in channel: " + channel.getName());
+            
+            // Immediately check for submissions
+            checkSubmissionsForUser(username);
+        } catch (Exception e) {
+            if (entityManager.getTransaction().isActive()) {
+                entityManager.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            entityManager.close();
         }
-        
-        // Start tracking in DailyStatisticsService
-        dailyStatisticsService.trackUserInChannel(username, channel);
-        
-        System.out.println("Started tracking user: " + username + " in channel: " + channel.getName());
-        
-        // Immediately check for submissions
-        checkSubmissionsForUser(username);
     }
 
     public void untrackUser(String username, MessageChannel channel) {
@@ -117,14 +134,13 @@ public class SubmissionTracker {
     }
 
     private void checkSubmissionsForUser(String username) {
+        EntityManager entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
         try {
-            Optional<TrackedUser> userOpt = userRepository.findByUsername(username);
-            if (!userOpt.isPresent()) {
-                System.out.println("User not found in database: " + username);
-                return;
-            }
+            TrackedUser user = entityManager.createQuery(
+                "FROM TrackedUser u LEFT JOIN FETCH u.channelIds WHERE u.username = :username", TrackedUser.class)
+                .setParameter("username", username)
+                .getSingleResult();
             
-            TrackedUser user = userOpt.get();
             System.out.println("\nChecking submissions for user: " + username);
             System.out.println("User has " + user.getChannelIds().size() + " tracking channels: " + 
                 String.join(", ", user.getChannelIds()));
@@ -183,8 +199,9 @@ public class SubmissionTracker {
                         submission.getTitle(), submission.getTitleSlug());
                     
                     // Send the message to all tracking channels
-                    System.out.println("Attempting to send notifications to " + user.getChannelIds().size() + " channels");
-                    for (String channelId : user.getChannelIds()) {
+                    Set<String> channelIds = new HashSet<>(user.getChannelIds()); // Copy to avoid lazy loading issues
+                    System.out.println("Attempting to send notifications to " + channelIds.size() + " channels");
+                    for (String channelId : channelIds) {
                         System.out.println("Looking for channel: " + channelId);
                         MessageChannel channel = findChannelById(channelId);
                         if (channel != null) {
@@ -207,13 +224,20 @@ public class SubmissionTracker {
             }
             
             // Update last check time
+            entityManager.getTransaction().begin();
             user.setLastCheckTime(currentTime);
-            userRepository.updateLastCheckTime(user, currentTime);
+            entityManager.merge(user);
+            entityManager.getTransaction().commit();
             System.out.println("Updated last check time to: " + currentTime);
             
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Error checking submissions for " + username + ": " + e.getMessage());
             e.printStackTrace();
+            if (entityManager.getTransaction().isActive()) {
+                entityManager.getTransaction().rollback();
+            }
+        } finally {
+            entityManager.close();
         }
     }
 
