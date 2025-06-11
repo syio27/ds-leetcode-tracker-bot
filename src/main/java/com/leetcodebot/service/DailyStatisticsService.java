@@ -8,6 +8,7 @@ import com.leetcodebot.repository.ProblemSolveHistoryRepository;
 import com.leetcodebot.model.TrackedUser;
 import com.leetcodebot.model.ProblemSolveHistory;
 import net.dv8tion.jda.api.JDA;
+import com.leetcodebot.config.DatabaseConfig;
 
 import java.awt.Color;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import jakarta.persistence.EntityManager;
 
 public class DailyStatisticsService {
     private static final Logger logger = LoggerFactory.getLogger(DailyStatisticsService.class);
@@ -63,7 +65,7 @@ public class DailyStatisticsService {
         try {
             LocalDateTime now = LocalDateTime.now(timezone);
             // For testing: Schedule 10 minutes from now
-            LocalDateTime nextRun = now.plusMinutes(10);
+            LocalDateTime nextRun = now.plusMinutes(5);
             
             long initialDelay = nextRun.atZone(timezone).toInstant().toEpochMilli() - 
                               System.currentTimeMillis();
@@ -110,79 +112,103 @@ public class DailyStatisticsService {
         LocalDateTime startOfDay = LocalDateTime.now(timezone).toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        // Get all active users
-        List<TrackedUser> activeUsers = userRepository.findAllActive();
-        logger.info("Found {} active users", activeUsers.size());
-        
-        if (activeUsers.isEmpty()) {
-            logger.info("No active users found, skipping daily report");
-            return;
-        }
+        EntityManager entityManager = null;
+        try {
+            entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
+            entityManager.getTransaction().begin();
 
-        // Collect statistics for each user
-        Map<String, Integer> totalSolvedCount = new HashMap<>();
-        Map<String, Map<String, List<Map<String, String>>>> allUserStats = new HashMap<>();
-
-        for (TrackedUser user : activeUsers) {
-            List<ProblemSolveHistory> todaysSolutions = solveHistoryRepository.findByUserInTimeRange(
-                user, startOfDay, endOfDay);
+            // Get all active users with their channel IDs eagerly loaded
+            List<TrackedUser> activeUsers = entityManager.createQuery(
+                "FROM TrackedUser u LEFT JOIN FETCH u.channelIds WHERE u.active = true",
+                TrackedUser.class
+            ).getResultList();
             
-            logger.info("User {} has {} solutions today", user.getUsername(), todaysSolutions.size());
+            logger.info("Found {} active users", activeUsers.size());
 
-            if (!todaysSolutions.isEmpty()) {
-                Map<String, List<Map<String, String>>> userStats = new HashMap<>();
-                userStats.put("Easy", new ArrayList<>());
-                userStats.put("Medium", new ArrayList<>());
-                userStats.put("Hard", new ArrayList<>());
+            if (activeUsers.isEmpty()) {
+                logger.info("No active users found, skipping daily report");
+                return;
+            }
 
-                for (ProblemSolveHistory solution : todaysSolutions) {
-                    try {
-                        String difficulty = leetCodeService.getProblemDifficulty(solution.getProblemSlug());
-                        Map<String, String> problemInfo = new HashMap<>();
-                        problemInfo.put("id", solution.getId().toString());
-                        problemInfo.put("title", solution.getProblemSlug());
-                        problemInfo.put("titleSlug", solution.getProblemSlug());
-                        
-                        userStats.get(difficulty).add(problemInfo);
-                    } catch (Exception e) {
-                        logger.error("Error getting problem difficulty for {}", solution.getProblemSlug(), e);
+            // Collect statistics for each user
+            Map<String, Integer> totalSolvedCount = new HashMap<>();
+            Map<String, Map<String, List<Map<String, String>>>> allUserStats = new HashMap<>();
+
+            for (TrackedUser user : activeUsers) {
+                List<ProblemSolveHistory> todaysSolutions = solveHistoryRepository.findByUserInTimeRange(
+                    user, startOfDay, endOfDay);
+                
+                logger.info("User {} has {} solutions today", user.getUsername(), todaysSolutions.size());
+
+                if (!todaysSolutions.isEmpty()) {
+                    Map<String, List<Map<String, String>>> userStats = new HashMap<>();
+                    userStats.put("Easy", new ArrayList<>());
+                    userStats.put("Medium", new ArrayList<>());
+                    userStats.put("Hard", new ArrayList<>());
+
+                    for (ProblemSolveHistory solution : todaysSolutions) {
+                        try {
+                            String difficulty = leetCodeService.getProblemDifficulty(solution.getProblemSlug());
+                            Map<String, String> problemInfo = new HashMap<>();
+                            problemInfo.put("id", solution.getId().toString());
+                            problemInfo.put("title", solution.getProblemSlug());
+                            problemInfo.put("titleSlug", solution.getProblemSlug());
+                            
+                            userStats.get(difficulty).add(problemInfo);
+                        } catch (Exception e) {
+                            logger.error("Error getting problem difficulty for {}", solution.getProblemSlug(), e);
+                        }
                     }
+
+                    allUserStats.put(user.getUsername(), userStats);
+                    totalSolvedCount.put(user.getUsername(), todaysSolutions.size());
                 }
-
-                allUserStats.put(user.getUsername(), userStats);
-                totalSolvedCount.put(user.getUsername(), todaysSolutions.size());
             }
-        }
 
-        // Skip if no submissions
-        if (totalSolvedCount.isEmpty()) {
-            logger.info("No submissions found for any user today, skipping daily report");
-            return;
-        }
+            // Skip if no submissions
+            if (totalSolvedCount.isEmpty()) {
+                logger.info("No submissions found for any user today, skipping daily report");
+                return;
+            }
 
-        // Create and send the report
-        List<MessageEmbed> report = createCombinedDailyReport(allUserStats, totalSolvedCount);
+            // Create and send the report
+            List<MessageEmbed> report = createCombinedDailyReport(allUserStats, totalSolvedCount);
 
-        // Send to all unique channels of active users
-        Set<String> channelIds = activeUsers.stream()
-            .flatMap(user -> user.getChannelIds().stream())
-            .collect(Collectors.toSet());
+            // Collect all unique channel IDs while still in transaction
+            Set<String> allChannelIds = activeUsers.stream()
+                .flatMap(user -> user.getChannelIds().stream())
+                .collect(Collectors.toSet());
+
+            // Commit the transaction before sending Discord messages
+            entityManager.getTransaction().commit();
+
+            // Send to all unique channels
+            logger.info("Sending daily report to {} channels", allChannelIds.size());
             
-        logger.info("Sending daily report to {} channels", channelIds.size());
+            for (String channelId : allChannelIds) {
+                MessageChannel channel = findChannelById(channelId);
+                if (channel != null) {
+                    logger.info("Sending report to channel {}", channelId);
+                    channel.sendMessageEmbeds(report).queue(
+                        success -> logger.info("Successfully sent report to channel {}", channelId),
+                        error -> logger.error("Failed to send report to channel {}", channelId, error)
+                    );
+                } else {
+                    logger.error("Could not find channel with ID {}", channelId);
+                }
+            }
+            logger.info("Finished sending daily reports");
 
-        for (String channelId : channelIds) {
-            MessageChannel channel = findChannelById(channelId);
-            if (channel != null) {
-                logger.info("Sending report to channel {}", channelId);
-                channel.sendMessageEmbeds(report).queue(
-                    success -> logger.info("Successfully sent report to channel {}", channelId),
-                    error -> logger.error("Failed to send report to channel {}", channelId, error)
-                );
-            } else {
-                logger.error("Could not find channel with ID {}", channelId);
+        } catch (Exception e) {
+            logger.error("Error while generating daily report", e);
+            if (entityManager != null && entityManager.getTransaction().isActive()) {
+                entityManager.getTransaction().rollback();
+            }
+        } finally {
+            if (entityManager != null) {
+                entityManager.close();
             }
         }
-        logger.info("Finished sending daily reports");
     }
 
     private List<MessageEmbed> createCombinedDailyReport(
