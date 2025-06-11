@@ -62,12 +62,8 @@ public class DailyStatisticsService {
     private void scheduleDaily() {
         try {
             LocalDateTime now = LocalDateTime.now(timezone);
-            LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 40); // Set to 12:40 AM
-            
-            if (nextRun.isBefore(now)) {
-                nextRun = nextRun.plusDays(1);
-                logger.warn("Calculated next run was in the past, adjusted to next day: {}", nextRun);
-            }
+            // For testing: Schedule 10 minutes from now
+            LocalDateTime nextRun = now.plusMinutes(10);
             
             long initialDelay = nextRun.atZone(timezone).toInstant().toEpochMilli() - 
                               System.currentTimeMillis();
