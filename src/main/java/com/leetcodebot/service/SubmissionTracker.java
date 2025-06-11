@@ -1,11 +1,15 @@
 package com.leetcodebot.service;
 
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import com.leetcodebot.config.DatabaseConfig;
+import com.leetcodebot.model.TrackedUser;
+import com.leetcodebot.model.SubmissionHistory;
+import com.leetcodebot.model.ProblemSolveHistory;
 import com.leetcodebot.repository.TrackedUserRepository;
 import com.leetcodebot.repository.ProblemSolveHistoryRepository;
-import com.leetcodebot.model.TrackedUser;
-import com.leetcodebot.model.ProblemSolveHistory;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -214,9 +218,21 @@ public class SubmissionTracker {
     }
 
     public boolean isUserTracked(String username, MessageChannel channel) {
-        Optional<TrackedUser> userOpt = userRepository.findByUsername(username);
-        return userOpt.map(user -> user.getChannelIds().contains(channel.getId()))
-                     .orElse(false);
+        EntityManager entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
+        try {
+            TrackedUser user = entityManager.createQuery(
+                    "FROM TrackedUser WHERE username = :username AND active = true", TrackedUser.class)
+                    .setParameter("username", username)
+                    .getSingleResult();
+            // Access channelIds within the session
+            return user.getChannelIds().contains(channel.getId());
+        } catch (NoResultException e) {
+            return false;
+        } finally {
+            if (entityManager != null) {
+                entityManager.close();
+            }
+        }
     }
 
     private MessageChannel findChannelById(String channelId) {
