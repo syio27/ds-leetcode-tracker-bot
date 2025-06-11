@@ -39,8 +39,8 @@ public class DailyStatisticsService {
         this.scheduler = Executors.newScheduledThreadPool(1);
         this.jda = jda;
         
-        // Get system timezone
-        this.timezone = ZoneId.systemDefault();
+        // Set timezone to Europe/Warsaw
+        this.timezone = ZoneId.of("Europe/Warsaw");
         logger.info("DailyStatisticsService initialized with timezone: {}", timezone);
         
         // Schedule daily report at midnight
