@@ -9,12 +9,6 @@
         <class>com.leetcodebot.model.SubmissionHistory</class>
         <class>com.leetcodebot.model.ProblemSolveHistory</class>
         <properties>
-            <!-- JDBC Configuration -->
-            <property name="jakarta.persistence.jdbc.driver" value="org.h2.Driver"/>
-            <property name="jakarta.persistence.jdbc.url" value="${DB_URL:jdbc:h2:/data/leetcodebot;AUTO_SERVER=TRUE}"/>
-            <property name="jakarta.persistence.jdbc.user" value="${DB_USER:sa}"/>
-            <property name="jakarta.persistence.jdbc.password" value="${DB_PASSWORD:}"/>
-            
             <!-- Hibernate Configuration -->
             <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
             <property name="hibernate.show_sql" value="true"/>
@@ -27,7 +21,7 @@
             <property name="hibernate.hikari.maximumPoolSize" value="10"/>
             <property name="hibernate.hikari.idleTimeout" value="300000"/>
             <property name="hibernate.hikari.dataSourceClassName" value="org.h2.jdbcx.JdbcDataSource"/>
-            <property name="hibernate.hikari.dataSource.url" value="${DB_URL:jdbc:h2:/data/leetcodebot;AUTO_SERVER=TRUE}"/>
+            <property name="hibernate.hikari.dataSource.url" value="${DB_URL:jdbc:h2:/var/lib/containers/railwayapp/bind-mounts/c5d4c339-0c5a-4d6a-8c93-d71f7d21928f/vol_k5t2ss3i997f40xh/leetcodebot;AUTO_SERVER=TRUE}"/>
             <property name="hibernate.hikari.dataSource.user" value="${DB_USER:sa}"/>
             <property name="hibernate.hikari.dataSource.password" value="${DB_PASSWORD:}"/>
         </properties>
