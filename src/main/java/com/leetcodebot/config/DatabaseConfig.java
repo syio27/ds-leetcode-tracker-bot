@@ -18,6 +18,7 @@ public class DatabaseConfig {
     private static EntityManagerFactory entityManagerFactory;
     private static HttpServer consoleServer;
     private static final String DEFAULT_DB_PATH = System.getProperty("user.home") + "/leetcodebot-data/db";
+    private static final String RAILWAY_VOLUME_PATH = "/var/lib/containers/railwayapp/bind-mounts";
 
     public static EntityManagerFactory getEntityManagerFactory() {
         if (entityManagerFactory == null) {
@@ -25,14 +26,32 @@ public class DatabaseConfig {
                 // Get the database URL from environment or construct it
                 String dbUrl = System.getenv("DB_URL");
                 if (dbUrl == null || dbUrl.isEmpty()) {
-                    // Create the database directory if it doesn't exist
-                    File dbDir = new File(DEFAULT_DB_PATH).getParentFile();
-                    if (!dbDir.exists()) {
-                        dbDir.mkdirs();
+                    // Check if we're running on Railway by looking for the volume mount
+                    File volumeDir = new File(RAILWAY_VOLUME_PATH);
+                    if (volumeDir.exists() && volumeDir.isDirectory()) {
+                        // Find the most recent volume mount directory
+                        File[] mounts = volumeDir.listFiles();
+                        if (mounts != null && mounts.length > 0) {
+                            File latestMount = mounts[mounts.length - 1];
+                            // Use the latest mount directory for the database
+                            dbUrl = String.format("jdbc:h2:file:%s/leetcodebot;AUTO_SERVER=TRUE", 
+                                latestMount.getAbsolutePath());
+                            System.out.println("Using Railway volume for database storage: " + dbUrl);
+                        }
                     }
                     
-                    // Use the absolute path for the database
-                    dbUrl = String.format("jdbc:h2:file:%s;AUTO_SERVER=TRUE", DEFAULT_DB_PATH);
+                    // If not on Railway, use local development path
+                    if (dbUrl == null) {
+                        // Create the database directory if it doesn't exist
+                        File dbDir = new File(DEFAULT_DB_PATH).getParentFile();
+                        if (!dbDir.exists()) {
+                            dbDir.mkdirs();
+                        }
+                        
+                        // Use the absolute path for the database
+                        dbUrl = String.format("jdbc:h2:file:%s;AUTO_SERVER=TRUE", DEFAULT_DB_PATH);
+                        System.out.println("Using local development path for database storage: " + dbUrl);
+                    }
                 }
                 
                 System.out.println("Initializing database with URL: " + dbUrl);
