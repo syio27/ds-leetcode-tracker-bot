@@ -158,7 +158,7 @@ public class LeetCodeService {
     public List<Submission> getRecentSubmissions(String username) throws IOException {
         ObjectNode variables = objectMapper.createObjectNode();
         variables.put("username", username);
-        variables.put("limit", 15);
+        variables.put("limit", 2);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("query", recentSubmissionsQuery);

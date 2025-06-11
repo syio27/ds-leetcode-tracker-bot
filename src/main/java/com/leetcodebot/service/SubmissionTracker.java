@@ -26,8 +26,9 @@ public class SubmissionTracker {
     private final ProblemSolveHistoryRepository solveHistoryRepository;
     private final ScheduledExecutorService scheduler;
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+            .withZone(ZoneId.of("Europe/Warsaw"));
     private final JDA jda;
+    private final ZoneId timezone = ZoneId.of("Europe/Warsaw");
 
     public SubmissionTracker(LeetCodeService leetCodeService, JDA jda) {
         this.leetCodeService = leetCodeService;
@@ -178,7 +179,7 @@ public class SubmissionTracker {
             for (LeetCodeService.Submission submission : submissions) {
                 LocalDateTime submissionTime = LocalDateTime.ofInstant(
                     Instant.ofEpochSecond(submission.getSubmitTime()), 
-                    ZoneId.systemDefault()
+                    timezone
                 );
                 
                 System.out.println("Processing submission: " + submission.getTitle() + 

@@ -2,10 +2,13 @@ package com.leetcodebot.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "submission_history")
 public class SubmissionHistory {
+    private static final ZoneId TIMEZONE = ZoneId.of("Europe/Warsaw");
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,7 +45,7 @@ public class SubmissionHistory {
         this.problemTitle = problemTitle;
         this.problemSlug = problemSlug;
         this.difficulty = difficulty;
-        this.solvedAt = LocalDateTime.now();
+        this.solvedAt = LocalDateTime.now(TIMEZONE);
     }
 
     // Getters and Setters

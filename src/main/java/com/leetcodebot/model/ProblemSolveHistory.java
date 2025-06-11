@@ -2,11 +2,14 @@ package com.leetcodebot.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "problem_solve_history",
     uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "problem_slug"}))
 public class ProblemSolveHistory {
+    private static final ZoneId TIMEZONE = ZoneId.of("Europe/Warsaw");
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,7 +33,7 @@ public class ProblemSolveHistory {
     public ProblemSolveHistory(TrackedUser user, String problemSlug) {
         this.user = user;
         this.problemSlug = problemSlug;
-        this.lastSolvedAt = LocalDateTime.now();
+        this.lastSolvedAt = LocalDateTime.now(TIMEZONE);
     }
 
     public Long getId() {
@@ -75,6 +78,6 @@ public class ProblemSolveHistory {
 
     public void incrementSolveCount() {
         this.solveCount++;
-        this.lastSolvedAt = LocalDateTime.now();
+        this.lastSolvedAt = LocalDateTime.now(TIMEZONE);
     }
 } 
