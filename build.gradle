@@ -20,7 +20,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.leetcodebot.Main'
+    mainClass = 'com.leetcodebot.LeetCodeBot'
 }
 
 compileJava {
