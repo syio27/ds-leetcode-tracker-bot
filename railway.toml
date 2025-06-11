@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "./gradlew build"
+
+[deploy]
+startCommand = "./gradlew run --no-daemon"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[deploy.healthcheck]
+enabled = false 
