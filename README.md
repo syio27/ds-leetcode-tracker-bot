@@ -2,69 +2,34 @@
 
 A Discord bot that tracks LeetCode submissions for server members.
 
-## Oracle Cloud Deployment Instructions
+## Railway Deployment Instructions
 
-### 1. Set Up Oracle Cloud Instance
+### 1. Set Up Railway Project
 
-1. Sign up for Oracle Cloud Free Tier
-2. Create a new Compute Instance:
-   - Select "Always Free" eligible options
-   - Choose Oracle Linux 8
-   - Use the default "VM.Standard.E2.1.Micro" shape
-   - Generate or upload SSH keys
+1. Sign up on [Railway.app](https://railway.app)
+2. Create a new project
+3. Choose "Deploy from GitHub repo"
+4. Select your repository
 
-### 2. Initial Server Setup
+### 2. Configure Environment Variables
 
-1. Connect to your instance:
-   ```bash
-   ssh -i <path_to_private_key> opc@<your_instance_ip>
-   ```
+Add the following environment variables in Railway dashboard:
+- `DISCORD_TOKEN` - Your Discord bot token
+- `LEETCODE_SESSION` - Your LeetCode session token
+- `CSRF_TOKEN` - Your LeetCode CSRF token
 
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/syio27/ds-leetcode-tracker-bot.git
-   cd d-leetcode-bot
-   ```
+### 3. Deploy
 
-### 3. Configure Environment Variables
+Railway will automatically:
+1. Detect the Java project
+2. Install dependencies
+3. Build using Gradle
+4. Start the bot using the Procfile
 
-Edit the systemd service file (`discord-bot.service`) and replace the environment variables:
-```bash
-sudo nano /etc/systemd/system/discord-bot.service
-```
-
-Update these lines with your actual values:
-```
-Environment="DISCORD_TOKEN=your_token_here"
-Environment="LEETCODE_SESSION=your_session_here"
-Environment="CSRF_TOKEN=your_csrf_here"
-```
-
-### 4. Deploy the Bot
-
-1. Make the deployment script executable:
-   ```bash
-   chmod +x deploy.sh
-   ```
-
-2. Run the deployment script:
-   ```bash
-   ./deploy.sh
-   ```
-
-### 5. Manage the Bot Service
-
-- Check status: `sudo systemctl status discord-bot`
-- View logs: `sudo journalctl -u discord-bot -f`
-- Start service: `sudo systemctl start discord-bot`
-- Stop service: `sudo systemctl stop discord-bot`
-- Restart service: `sudo systemctl restart discord-bot`
-
-### 6. Firewall Configuration
-
-Ensure your Oracle Cloud security list allows:
-- Outbound traffic to Discord API (443/TCP)
-- Outbound traffic to LeetCode API (443/TCP)
+To view logs and monitor the bot:
+1. Go to your project in Railway dashboard
+2. Click on the deployment
+3. View the logs in real-time
 
 ## Development
 
@@ -92,22 +57,19 @@ To run the bot locally:
    - Copy the bot token
 
 2. Configure the bot:
-   - Create a `config.properties` file in the `src/main/resources` directory
-   - Add your Discord bot token and LeetCode credentials:
-     ```properties
-     # Discord Configuration
-     discord.token=your_bot_token_here
-     
-     # LeetCode Authentication
-     leetcode.username=your_leetcode_username
-     leetcode.password=your_leetcode_password
-     ```
-
-3. Build and Run:
-   ```bash
-   ./gradlew build
-   ./gradlew run
-   ```
+   - For local development:
+     - Create a `config.properties` file in the `src/main/resources` directory
+     - Add your Discord bot token and LeetCode credentials:
+       ```properties
+       # Discord Configuration
+       discord.token=your_bot_token_here
+       
+       # LeetCode Authentication
+       leetcode.session=your_leetcode_session_token
+       leetcode.csrf=your_leetcode_csrf_token
+       ```
+   - For Railway deployment:
+     - Use environment variables in the Railway dashboard
 
 ## Commands
 - `/track <leetcode_username>` - Start tracking a LeetCode user
@@ -119,13 +81,12 @@ To run the bot locally:
 - LeetCode account
 
 ## How it Works
-The bot automatically handles LeetCode authentication:
-1. Uses your LeetCode credentials to log in
-2. Automatically obtains and refreshes authentication tokens
-3. Handles token expiration by re-authenticating when needed
-4. Stores tokens in the config file for future use
+The bot uses LeetCode session tokens for authentication:
+1. Uses your LeetCode session and CSRF tokens
+2. Monitors user submissions through LeetCode API
+3. Sends notifications to Discord when new solutions are submitted
 
 ## Security Notes
-- Your LeetCode credentials are only used for authentication and are stored locally
-- The bot automatically manages authentication tokens
-- Never share your config.properties file as it contains sensitive information 
+- Never commit your config.properties file
+- Use environment variables for deployment
+- Keep your LeetCode session and CSRF tokens secure 
