@@ -30,6 +30,7 @@ public class DailyStatisticsService {
     private final Map<String, Set<String>> userChannels = new HashMap<>();
     private final Map<String, Set<String>> dailySubmissions = new HashMap<>();
     private final JDA jda;
+    private final ZoneId timezone;
 
     public DailyStatisticsService(LeetCodeService leetCodeService, JDA jda) {
         this.leetCodeService = leetCodeService;
@@ -38,9 +39,12 @@ public class DailyStatisticsService {
         this.scheduler = Executors.newScheduledThreadPool(1);
         this.jda = jda;
         
+        // Get system timezone
+        this.timezone = ZoneId.systemDefault();
+        logger.info("DailyStatisticsService initialized with timezone: {}", timezone);
+        
         // Schedule daily report at midnight
         scheduleDaily();
-        logger.info("DailyStatisticsService initialized");
     }
 
     public void trackUserInChannel(String username, MessageChannel channel) {
@@ -56,32 +60,58 @@ public class DailyStatisticsService {
     }
 
     private void scheduleDaily() {
-        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-        LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 30); // Set to 12:30 AM
-        long initialDelay = nextRun.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - 
-                          System.currentTimeMillis();
+        try {
+            LocalDateTime now = LocalDateTime.now(timezone);
+            LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 40); // Set to 12:40 AM
+            
+            if (nextRun.isBefore(now)) {
+                nextRun = nextRun.plusDays(1);
+                logger.warn("Calculated next run was in the past, adjusted to next day: {}", nextRun);
+            }
+            
+            long initialDelay = nextRun.atZone(timezone).toInstant().toEpochMilli() - 
+                              System.currentTimeMillis();
 
-        logger.info("Scheduling daily report. Current time: {}, Next run: {}, Initial delay: {} ms",
-            now, nextRun, initialDelay);
+            logger.info("Scheduling daily report. Current time: {}, Next run: {}, Initial delay: {} ms, Timezone: {}",
+                now, nextRun, initialDelay, timezone);
 
-        scheduler.scheduleAtFixedRate(
-            () -> {
-                try {
-                    logger.info("Starting daily report generation at {}", LocalDateTime.now());
-                    sendDailyReports();
-                } catch (Exception e) {
-                    logger.error("Error while generating daily report", e);
-                }
-            },
-            initialDelay,
-            TimeUnit.DAYS.toMillis(1),
-            TimeUnit.MILLISECONDS
-        );
+            if (initialDelay < 0) {
+                logger.error("Initial delay is negative: {} ms. This should not happen!", initialDelay);
+                initialDelay = 0;
+            }
+
+            scheduler.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        logger.info("Starting daily report generation at {} ({})", 
+                            LocalDateTime.now(timezone), timezone);
+                        sendDailyReports();
+                    } catch (Exception e) {
+                        logger.error("Error while generating daily report", e);
+                        e.printStackTrace();
+                    }
+                },
+                initialDelay,
+                TimeUnit.DAYS.toMillis(1),
+                TimeUnit.MILLISECONDS
+            );
+            
+            logger.info("Successfully scheduled daily report task");
+            
+            // Add a one-time task to verify the scheduler is running
+            scheduler.schedule(() -> {
+                logger.info("Scheduler health check - running after 1 minute");
+            }, 1, TimeUnit.MINUTES);
+            
+        } catch (Exception e) {
+            logger.error("Failed to schedule daily report task", e);
+            e.printStackTrace();
+        }
     }
 
     private void sendDailyReports() {
-        logger.info("Entering sendDailyReports()");
-        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        logger.info("Entering sendDailyReports() at {}", LocalDateTime.now(timezone));
+        LocalDateTime startOfDay = LocalDateTime.now(timezone).toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
         // Get all active users
