@@ -17,6 +17,7 @@ import java.io.File;
 public class DatabaseConfig {
     private static EntityManagerFactory entityManagerFactory;
     private static HttpServer consoleServer;
+    private static final String DEFAULT_DB_PATH = System.getProperty("user.home") + "/leetcodebot-data/db";
 
     public static EntityManagerFactory getEntityManagerFactory() {
         if (entityManagerFactory == null) {
@@ -24,25 +25,14 @@ public class DatabaseConfig {
                 // Get the database URL from environment or construct it
                 String dbUrl = System.getenv("DB_URL");
                 if (dbUrl == null || dbUrl.isEmpty()) {
-                    // Check if we're running on Railway by looking for the volume mount
-                    File volumeDir = new File("/var/lib/containers/railwayapp/bind-mounts");
-                    if (volumeDir.exists() && volumeDir.isDirectory()) {
-                        // Find the most recent volume mount directory
-                        File[] mounts = volumeDir.listFiles();
-                        if (mounts != null && mounts.length > 0) {
-                            File latestMount = mounts[mounts.length - 1];
-                            File volDir = new File(latestMount, "vol_k5t2ss3i997f40xh");
-                            if (volDir.exists()) {
-                                dbUrl = String.format("jdbc:h2:file:%s/leetcodebot;AUTO_SERVER=TRUE", 
-                                    volDir.getAbsolutePath());
-                            }
-                        }
+                    // Create the database directory if it doesn't exist
+                    File dbDir = new File(DEFAULT_DB_PATH).getParentFile();
+                    if (!dbDir.exists()) {
+                        dbDir.mkdirs();
                     }
                     
-                    // If not on Railway or couldn't find volume, use local path
-                    if (dbUrl == null) {
-                        dbUrl = "jdbc:h2:file:./data/leetcodebot;AUTO_SERVER=TRUE";
-                    }
+                    // Use the absolute path for the database
+                    dbUrl = String.format("jdbc:h2:file:%s;AUTO_SERVER=TRUE", DEFAULT_DB_PATH);
                 }
                 
                 System.out.println("Initializing database with URL: " + dbUrl);
