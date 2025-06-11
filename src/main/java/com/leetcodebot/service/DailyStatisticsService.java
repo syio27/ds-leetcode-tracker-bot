@@ -57,7 +57,7 @@ public class DailyStatisticsService {
 
     private void scheduleDaily() {
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-        LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 20); // Set to 12:20 AM
+        LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 30); // Set to 12:30 AM
         long initialDelay = nextRun.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - 
                           System.currentTimeMillis();
 
