@@ -64,8 +64,8 @@ public class DailyStatisticsService {
     private void scheduleDaily() {
         try {
             LocalDateTime now = LocalDateTime.now(timezone);
-            // For testing: Schedule 10 minutes from now
-            LocalDateTime nextRun = now.plusMinutes(5);
+            // Schedule for next midnight
+            LocalDateTime nextRun = now.toLocalDate().plusDays(1).atStartOfDay().atZone(timezone).toLocalDateTime();
             
             long initialDelay = nextRun.atZone(timezone).toInstant().toEpochMilli() - 
                               System.currentTimeMillis();
