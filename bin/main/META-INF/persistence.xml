@@ -21,7 +21,7 @@
             <property name="hibernate.hikari.maximumPoolSize" value="10"/>
             <property name="hibernate.hikari.idleTimeout" value="300000"/>
             <property name="hibernate.hikari.dataSourceClassName" value="org.h2.jdbcx.JdbcDataSource"/>
-            <property name="hibernate.hikari.dataSource.url" value="${DB_URL:jdbc:h2:file:/var/lib/containers/railwayapp/bind-mounts/97617175-c95c-4cf0-94e5-58ee6aa5a3d1/vol_k5t2ss3i997f40xh/leetcodebot;AUTO_SERVER=TRUE;DB_CLOSE_ON_EXIT=FALSE}"/>
+            <property name="hibernate.hikari.dataSource.url" value="${DB_URL:jdbc:h2:file:./data/leetcodebot;AUTO_SERVER=TRUE}"/>
             <property name="hibernate.hikari.dataSource.user" value="${DB_USER:sa}"/>
             <property name="hibernate.hikari.dataSource.password" value="${DB_PASSWORD:}"/>
         </properties>
