@@ -13,6 +13,9 @@ import java.util.regex.Pattern;
 import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashMap;
 
 public class LeetCodeService {
     private final OkHttpClient client;
@@ -25,6 +28,16 @@ public class LeetCodeService {
     private final String configPath;
 
     private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+    private static final String PROBLEM_DETAIL_QUERY = """
+        query problemData($titleSlug: String!) {
+            question(titleSlug: $titleSlug) {
+                difficulty
+                title
+                titleSlug
+            }
+        }
+    """;
 
     public LeetCodeService(Properties config) {
         this.client = new OkHttpClient.Builder()
@@ -239,6 +252,75 @@ public class LeetCodeService {
             if (response != null) {
                 response.close();
             }
+        }
+    }
+
+    public Map<String, List<Map<String, String>>> getDailyStatistics(String username, Set<String> submissionIds) throws IOException {
+        Map<String, List<Map<String, String>>> statistics = new HashMap<>();
+        statistics.put("Easy", new ArrayList<>());
+        statistics.put("Medium", new ArrayList<>());
+        statistics.put("Hard", new ArrayList<>());
+
+        for (String submissionId : submissionIds) {
+            Submission submission = getSubmissionById(submissionId);
+            if (submission != null) {
+                String difficulty = getProblemDifficulty(submission.getTitleSlug());
+                Map<String, String> problemInfo = new HashMap<>();
+                problemInfo.put("id", submission.getId());
+                problemInfo.put("title", submission.getTitle());
+                problemInfo.put("titleSlug", submission.getTitleSlug());
+                
+                statistics.get(difficulty).add(problemInfo);
+            }
+        }
+
+        return statistics;
+    }
+
+    private String getProblemDifficulty(String titleSlug) throws IOException {
+        ObjectNode variables = objectMapper.createObjectNode();
+        variables.put("titleSlug", titleSlug);
+
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.put("query", PROBLEM_DETAIL_QUERY);
+        requestBody.set("variables", variables);
+
+        Request request = new Request.Builder()
+                .url(apiUrl)
+                .post(RequestBody.create(requestBody.toString(), MediaType.parse("application/json")))
+                .header("User-Agent", USER_AGENT)
+                .header("Content-Type", "application/json")
+                .header("Referer", "https://leetcode.com/")
+                .header("Origin", "https://leetcode.com")
+                .header("Cookie", String.format("csrftoken=%s; LEETCODE_SESSION=%s", csrfToken, leetcodeSession))
+                .header("X-Csrftoken", csrfToken)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to get problem difficulty: " + response.code());
+            }
+
+            JsonNode jsonResponse = objectMapper.readTree(response.body().string());
+            return jsonResponse.path("data")
+                             .path("question")
+                             .path("difficulty")
+                             .asText("Unknown");
+        }
+    }
+
+    private Submission getSubmissionById(String id) {
+        // For now, we'll get it from recent submissions
+        // In a future enhancement, we could add a specific query for individual submissions
+        try {
+            List<Submission> submissions = getRecentSubmissions(id);
+            return submissions.stream()
+                            .filter(s -> s.getId().equals(id))
+                            .findFirst()
+                            .orElse(null);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
     }
 

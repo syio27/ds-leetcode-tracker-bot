@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 
 public class SubmissionTracker {
     private final LeetCodeService leetCodeService;
+    private final DailyStatisticsService dailyStatisticsService;
     private final Map<String, Set<MessageChannel>> trackedUsers;
     private final Map<String, Map<String, Long>> problemSolveHistory; // username -> (problemSlug -> lastSolveTime)
     private final Map<String, Long> lastCheckTime; // username -> lastCheckTimestamp
@@ -19,6 +20,7 @@ public class SubmissionTracker {
 
     public SubmissionTracker(LeetCodeService leetCodeService) {
         this.leetCodeService = leetCodeService;
+        this.dailyStatisticsService = new DailyStatisticsService(leetCodeService);
         this.trackedUsers = new ConcurrentHashMap<>();
         this.problemSolveHistory = new ConcurrentHashMap<>();
         this.lastCheckTime = new ConcurrentHashMap<>();
@@ -32,6 +34,9 @@ public class SubmissionTracker {
         trackedUsers.computeIfAbsent(username, k -> ConcurrentHashMap.newKeySet()).add(channel);
         problemSolveHistory.computeIfAbsent(username, k -> new ConcurrentHashMap<>());
         lastCheckTime.putIfAbsent(username, System.currentTimeMillis());
+        
+        // Start tracking in DailyStatisticsService
+        dailyStatisticsService.trackUserInChannel(username, channel);
         
         System.out.println("Started tracking user: " + username + " in channel: " + channel.getName());
         
@@ -47,6 +52,10 @@ public class SubmissionTracker {
                 trackedUsers.remove(username);
                 problemSolveHistory.remove(username);
                 lastCheckTime.remove(username);
+                
+                // Stop tracking in DailyStatisticsService
+                dailyStatisticsService.untrackUser(username);
+                
                 System.out.println("Stopped tracking user: " + username);
             }
         }
@@ -100,6 +109,10 @@ public class SubmissionTracker {
                         
                         // Update solve history
                         userHistory.put(submission.getTitleSlug(), submissionTime);
+                        
+                        // Record submission for daily statistics
+                        dailyStatisticsService.recordSubmission(username, submission.getId(), 
+                            submission.getTitle(), submission.getTitleSlug());
                         
                         // Send the message to all tracking channels
                         for (MessageChannel channel : channels) {
