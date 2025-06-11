@@ -5,17 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import okhttp3.*;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
+import java.io.FileOutputStream;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.io.FileOutputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashMap;
 
 public class LeetCodeService {
     private final OkHttpClient client;
@@ -277,7 +270,7 @@ public class LeetCodeService {
         return statistics;
     }
 
-    private String getProblemDifficulty(String titleSlug) throws IOException {
+    public String getProblemDifficulty(String titleSlug) throws IOException {
         ObjectNode variables = objectMapper.createObjectNode();
         variables.put("titleSlug", titleSlug);
 

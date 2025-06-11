@@ -18,7 +18,20 @@ Add the following environment variables in Railway dashboard:
 - `LEETCODE_SESSION` - Your LeetCode session token
 - `CSRF_TOKEN` - Your LeetCode CSRF token
 
-### 3. Deploy
+### 3. Database Configuration
+
+The bot uses H2 database for persistence. Configure these optional environment variables:
+- `DB_URL` - Database URL (default: `jdbc:h2:./leetcodebot;AUTO_SERVER=TRUE`)
+- `DB_USER` - Database username (default: `sa`)
+- `DB_PASSWORD` - Database password (default: empty)
+
+For Railway deployment, it's recommended to use a persistent volume:
+1. Add a volume to your project in Railway
+2. Set `DB_URL` to `jdbc:h2:/data/leetcodebot;AUTO_SERVER=TRUE`
+
+This ensures your tracked users and submission history persist between deployments.
+
+### 4. Deploy
 
 Railway will automatically:
 1. Detect the Java project
@@ -47,6 +60,7 @@ To run the bot locally:
 - Sends Discord notifications when users successfully solve problems
 - Automatic LeetCode authentication handling
 - Easy to configure and run
+- Persistent tracking across restarts/deployments
 
 ## Setup
 
@@ -85,8 +99,10 @@ The bot uses LeetCode session tokens for authentication:
 1. Uses your LeetCode session and CSRF tokens
 2. Monitors user submissions through LeetCode API
 3. Sends notifications to Discord when new solutions are submitted
+4. Persists tracking data in H2 database
 
 ## Security Notes
 - Never commit your config.properties file
 - Use environment variables for deployment
-- Keep your LeetCode session and CSRF tokens secure 
+- Keep your LeetCode session and CSRF tokens secure
+- Database files contain tracking history - secure appropriately 

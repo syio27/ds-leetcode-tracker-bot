@@ -3,13 +3,17 @@ package com.leetcodebot.service;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import com.leetcodebot.repository.TrackedUserRepository;
+import com.leetcodebot.repository.ProblemSolveHistoryRepository;
+import com.leetcodebot.model.TrackedUser;
+import com.leetcodebot.model.ProblemSolveHistory;
+import net.dv8tion.jda.api.JDA;
 
 import java.awt.Color;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -17,34 +21,34 @@ import java.util.stream.Collectors;
 
 public class DailyStatisticsService {
     private final LeetCodeService leetCodeService;
-    private final Map<String, Set<String>> dailySubmissions;
-    private final Map<String, MessageChannel> userChannels;
+    private final TrackedUserRepository userRepository;
+    private final ProblemSolveHistoryRepository solveHistoryRepository;
     private final ScheduledExecutorService scheduler;
+    private final Map<String, Set<String>> userChannels = new HashMap<>();
+    private final Map<String, Set<String>> dailySubmissions = new HashMap<>();
+    private final JDA jda;
 
-    public DailyStatisticsService(LeetCodeService leetCodeService) {
+    public DailyStatisticsService(LeetCodeService leetCodeService, JDA jda) {
         this.leetCodeService = leetCodeService;
-        this.dailySubmissions = new ConcurrentHashMap<>();
-        this.userChannels = new ConcurrentHashMap<>();
+        this.userRepository = new TrackedUserRepository();
+        this.solveHistoryRepository = new ProblemSolveHistoryRepository();
         this.scheduler = Executors.newScheduledThreadPool(1);
+        this.jda = jda;
         
         // Schedule daily report at midnight
         scheduleDaily();
     }
 
     public void trackUserInChannel(String username, MessageChannel channel) {
-        userChannels.put(username, channel);
-        dailySubmissions.putIfAbsent(username, Collections.synchronizedSet(new HashSet<>()));
+        // No need to do anything here as user tracking is handled by TrackedUserRepository
     }
 
     public void untrackUser(String username) {
-        userChannels.remove(username);
-        dailySubmissions.remove(username);
+        // No need to do anything here as user tracking is handled by TrackedUserRepository
     }
 
     public void recordSubmission(String username, String problemId, String title, String difficulty) {
-        if (dailySubmissions.containsKey(username)) {
-            dailySubmissions.get(username).add(problemId);
-        }
+        // This is now handled by ProblemSolveHistoryRepository in SubmissionTracker
     }
 
     private void scheduleDaily() {
@@ -62,46 +66,67 @@ public class DailyStatisticsService {
     }
 
     private void sendDailyReports() {
-        // Skip if no submissions
-        if (dailySubmissions.values().stream().allMatch(Set::isEmpty)) {
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+
+        // Get all active users
+        List<TrackedUser> activeUsers = userRepository.findAllActive();
+        if (activeUsers.isEmpty()) {
             return;
         }
 
-        // Collect all statistics first
-        Map<String, Map<String, List<Map<String, String>>>> allUserStats = new HashMap<>();
+        // Collect statistics for each user
         Map<String, Integer> totalSolvedCount = new HashMap<>();
+        Map<String, Map<String, List<Map<String, String>>>> allUserStats = new HashMap<>();
 
-        // Gather statistics for all users
-        for (Map.Entry<String, Set<String>> entry : dailySubmissions.entrySet()) {
-            String username = entry.getKey();
-            Set<String> submissions = entry.getValue();
+        for (TrackedUser user : activeUsers) {
+            List<ProblemSolveHistory> todaysSolutions = solveHistoryRepository.findByUserInTimeRange(
+                user, startOfDay, endOfDay);
 
-            if (!submissions.isEmpty()) {
-                try {
-                    Map<String, List<Map<String, String>>> userStats = leetCodeService.getDailyStatistics(username, submissions);
-                    allUserStats.put(username, userStats);
-                    
-                    // Calculate total solved problems for this user
-                    int totalSolved = userStats.values().stream()
-                        .mapToInt(List::size)
-                        .sum();
-                    totalSolvedCount.put(username, totalSolved);
-                } catch (Exception e) {
-                    e.printStackTrace();
+            if (!todaysSolutions.isEmpty()) {
+                Map<String, List<Map<String, String>>> userStats = new HashMap<>();
+                userStats.put("Easy", new ArrayList<>());
+                userStats.put("Medium", new ArrayList<>());
+                userStats.put("Hard", new ArrayList<>());
+
+                for (ProblemSolveHistory solution : todaysSolutions) {
+                    try {
+                        String difficulty = leetCodeService.getProblemDifficulty(solution.getProblemSlug());
+                        Map<String, String> problemInfo = new HashMap<>();
+                        problemInfo.put("id", solution.getId().toString());
+                        problemInfo.put("title", solution.getProblemSlug());
+                        problemInfo.put("titleSlug", solution.getProblemSlug());
+                        
+                        userStats.get(difficulty).add(problemInfo);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
+
+                allUserStats.put(user.getUsername(), userStats);
+                totalSolvedCount.put(user.getUsername(), todaysSolutions.size());
             }
         }
 
-        // Find the channel to send the report to (use the first available channel)
-        MessageChannel reportChannel = userChannels.values().stream().findFirst().orElse(null);
-        if (reportChannel != null && !allUserStats.isEmpty()) {
-            // Create and send the combined report
-            List<MessageEmbed> report = createCombinedDailyReport(allUserStats, totalSolvedCount);
-            reportChannel.sendMessageEmbeds(report).queue();
+        // Skip if no submissions
+        if (totalSolvedCount.isEmpty()) {
+            return;
         }
 
-        // Clear all submissions for the new day
-        dailySubmissions.values().forEach(Set::clear);
+        // Create and send the report
+        List<MessageEmbed> report = createCombinedDailyReport(allUserStats, totalSolvedCount);
+
+        // Send to all unique channels of active users
+        Set<String> channelIds = activeUsers.stream()
+            .flatMap(user -> user.getChannelIds().stream())
+            .collect(Collectors.toSet());
+
+        for (String channelId : channelIds) {
+            MessageChannel channel = findChannelById(channelId);
+            if (channel != null) {
+                channel.sendMessageEmbeds(report).queue();
+            }
+        }
     }
 
     private List<MessageEmbed> createCombinedDailyReport(
@@ -136,41 +161,41 @@ public class DailyStatisticsService {
             leaderboard.append(String.format("%d. **%s**: %d problems\n",
                 i + 1, entry.getKey(), entry.getValue()));
         }
-        leaderboardEmbed.addField("📊 Leaderboard", leaderboard.toString(), false);
+
+        if (leaderboard.length() > 0) {
+            leaderboardEmbed.addField("📊 Leaderboard", leaderboard.toString(), false);
+        }
+
         embeds.add(leaderboardEmbed.build());
 
-        // Create individual user statistics embeds
+        // Add individual statistics for each user
         for (Map.Entry<String, Integer> userEntry : sortedUsers) {
             String username = userEntry.getKey();
             Map<String, List<Map<String, String>>> userStats = allUserStats.get(username);
-            
+
             EmbedBuilder userEmbed = new EmbedBuilder()
-                .setTitle(String.format("📝 %s's Solutions", username))
-                .setColor(Color.GREEN)
+                .setTitle("📝 " + username + "'s Daily Solutions")
+                .setColor(new Color(114, 137, 218))
                 .setTimestamp(LocalDateTime.now());
 
-            Map<String, Integer> difficultyCounts = new HashMap<>();
-            List<String> problemsList = new ArrayList<>();
+            for (Map.Entry<String, List<Map<String, String>>> difficultyEntry : userStats.entrySet()) {
+                String difficulty = difficultyEntry.getKey();
+                List<Map<String, String>> problems = difficultyEntry.getValue();
 
-            userStats.forEach((difficulty, problems) -> {
-                difficultyCounts.put(difficulty, problems.size());
-                problems.forEach(problem -> 
-                    problemsList.add(String.format("- %s (%s)", problem.get("title"), difficulty))
-                );
-            });
+                if (!problems.isEmpty()) {
+                    StringBuilder problemList = new StringBuilder();
+                    for (Map<String, String> problem : problems) {
+                        problemList.append(String.format("• [%s](https://leetcode.com/problems/%s/)\n",
+                            problem.get("title"),
+                            problem.get("titleSlug")));
+                    }
 
-            userEmbed.addField("By Difficulty",
-                String.format("Easy: %d\nMedium: %d\nHard: %d",
-                    difficultyCounts.getOrDefault("Easy", 0),
-                    difficultyCounts.getOrDefault("Medium", 0),
-                    difficultyCounts.getOrDefault("Hard", 0)
-                ), false);
-
-            // Add problems list in chunks
-            List<String> chunks = splitIntoChunks(problemsList, 1024);
-            for (int i = 0; i < chunks.size(); i++) {
-                userEmbed.addField(i == 0 ? "Problems Solved" : "Problems Solved (continued)",
-                    chunks.get(i), false);
+                    userEmbed.addField(
+                        String.format("%s (%d)", difficulty, problems.size()),
+                        problemList.toString(),
+                        true
+                    );
+                }
             }
 
             embeds.add(userEmbed.build());
@@ -179,25 +204,7 @@ public class DailyStatisticsService {
         return embeds;
     }
 
-    private List<String> splitIntoChunks(List<String> list, int maxChunkSize) {
-        List<String> chunks = new ArrayList<>();
-        StringBuilder currentChunk = new StringBuilder();
-
-        for (String item : list) {
-            if (currentChunk.length() + item.length() + 1 > maxChunkSize) {
-                chunks.add(currentChunk.toString());
-                currentChunk = new StringBuilder();
-            }
-            if (currentChunk.length() > 0) {
-                currentChunk.append("\n");
-            }
-            currentChunk.append(item);
-        }
-
-        if (currentChunk.length() > 0) {
-            chunks.add(currentChunk.toString());
-        }
-
-        return chunks;
+    private MessageChannel findChannelById(String channelId) {
+        return jda.getChannelById(MessageChannel.class, channelId);
     }
 } 
