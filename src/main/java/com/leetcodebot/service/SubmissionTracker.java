@@ -122,6 +122,9 @@ public class SubmissionTracker {
             
             TrackedUser user = userOpt.get();
             System.out.println("\nChecking submissions for user: " + username);
+            System.out.println("User has " + user.getChannelIds().size() + " tracking channels: " + 
+                String.join(", ", user.getChannelIds()));
+            
             List<LeetCodeService.Submission> submissions = leetCodeService.getRecentSubmissions(username);
             System.out.println("Received " + submissions.size() + " submissions from LeetCode");
 
@@ -162,25 +165,36 @@ public class SubmissionTracker {
                     
                     // Update solve history
                     if (isResolved) {
+                        System.out.println("Updating solve count for existing problem");
                         solveHistoryRepository.updateSolveCount(historyOpt.get());
                     } else {
+                        System.out.println("Creating new solve history record");
                         ProblemSolveHistory newHistory = new ProblemSolveHistory(user, submission.getTitleSlug());
                         solveHistoryRepository.saveSolveHistory(newHistory);
                     }
                     
                     // Record submission for daily statistics
+                    System.out.println("Recording submission for daily statistics");
                     dailyStatisticsService.recordSubmission(username, submission.getId(), 
                         submission.getTitle(), submission.getTitleSlug());
                     
                     // Send the message to all tracking channels
+                    System.out.println("Attempting to send notifications to " + user.getChannelIds().size() + " channels");
                     for (String channelId : user.getChannelIds()) {
+                        System.out.println("Looking for channel: " + channelId);
                         MessageChannel channel = findChannelById(channelId);
                         if (channel != null) {
-                            System.out.println("Sending announcement to channel: " + channel.getName());
+                            System.out.println("Found channel " + channel.getName() + ", sending message: " + message);
                             channel.sendMessage(message).queue(
                                 success -> System.out.println("Successfully sent announcement to channel: " + channel.getName()),
-                                error -> System.err.println("Failed to send announcement to channel: " + channel.getName() + ", error: " + error.getMessage())
+                                error -> {
+                                    System.err.println("Failed to send announcement to channel: " + channel.getName());
+                                    System.err.println("Error: " + error.getMessage());
+                                    error.printStackTrace();
+                                }
                             );
+                        } else {
+                            System.err.println("Channel not found: " + channelId);
                         }
                     }
                 } else {
@@ -206,6 +220,13 @@ public class SubmissionTracker {
     }
 
     private MessageChannel findChannelById(String channelId) {
-        return jda.getChannelById(MessageChannel.class, channelId);
+        System.out.println("Looking for channel with ID: " + channelId);
+        MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
+        if (channel == null) {
+            System.err.println("Failed to find channel with ID: " + channelId);
+        } else {
+            System.out.println("Found channel: " + channel.getName());
+        }
+        return channel;
     }
 } 

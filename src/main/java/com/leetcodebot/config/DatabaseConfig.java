@@ -10,8 +10,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 
 public class DatabaseConfig {
     private static EntityManagerFactory entityManagerFactory;
@@ -22,32 +20,18 @@ public class DatabaseConfig {
     public static EntityManagerFactory getEntityManagerFactory() {
         if (entityManagerFactory == null) {
             try {
-                // Get the database URL from environment or use default
-                String dbUrl = System.getenv().getOrDefault("DB_URL", 
-                    "jdbc:h2:file:./data/leetcodebot;AUTO_SERVER=TRUE;DB_CLOSE_ON_EXIT=FALSE");
-                
-                System.out.println("Initializing database with URL: " + dbUrl);
-                
-                // Create properties for persistence unit
-                Map<String, String> properties = new HashMap<>();
-                properties.put("hibernate.hikari.dataSource.url", dbUrl);
-                
-                // Create EntityManagerFactory with properties
-                entityManagerFactory = Persistence.createEntityManagerFactory("leetcodebotPU", properties);
-                
-                System.out.println("Successfully created EntityManagerFactory");
-                startH2Console(dbUrl);
+                entityManagerFactory = Persistence.createEntityManagerFactory("leetcodebotPU");
+                startH2Console();
             } catch (Exception e) {
-                System.err.println("Failed to create EntityManagerFactory: " + e.getMessage());
                 e.printStackTrace();
             }
         }
         return entityManagerFactory;
     }
 
-    private static void startH2Console(String dbUrl) throws IOException {
+    private static void startH2Console() throws IOException {
         // Start H2 Console on a separate port (default Railway port or 8082)
-        int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8082"));
+        int port = Integer.parseInt(System.getenv().getOrDefault("H2_CONSOLE_PORT", "8082"));
         consoleServer = HttpServer.create(new InetSocketAddress(port), 0);
 
         // Proxy the H2 Console with basic auth
@@ -56,8 +40,8 @@ public class DatabaseConfig {
         consoleServer.start();
 
         System.out.println("H2 Console started on port " + port);
-        System.out.println("Database URL: " + dbUrl);
-        System.out.println("Username: " + System.getenv().getOrDefault("DB_USER", "sa"));
+        System.out.println("Access it at: https://your-railway-url/h2-console");
+        System.out.println("JDBC URL to use: jdbc:h2:/data/leetcodebot");
     }
 
     private static class H2ConsoleHandler implements HttpHandler {
@@ -85,7 +69,7 @@ public class DatabaseConfig {
                     </style>
                 </head>
                 <body>
-                    <iframe src="/h2-console"></iframe>
+                    <iframe src="http://localhost:8082/h2-console"></iframe>
                 </body>
                 </html>
                 """;

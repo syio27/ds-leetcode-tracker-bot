@@ -30,8 +30,32 @@ public class LeetCodeBot {
         leetCodeService = new LeetCodeService(config);
         keepAlive = new KeepAlive();
 
+        System.out.println("Initializing Discord bot with token...");
         jda = JDABuilder.createDefault(token)
+                .enableIntents(net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MESSAGES,
+                             net.dv8tion.jda.api.requests.GatewayIntent.MESSAGE_CONTENT,
+                             net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MEMBERS)
+                .setMemberCachePolicy(net.dv8tion.jda.api.utils.MemberCachePolicy.ALL)
                 .build();
+
+        // Wait for the bot to be ready
+        try {
+            jda.awaitReady();
+            System.out.println("Bot successfully connected to Discord!");
+            System.out.println("Bot name: " + jda.getSelfUser().getName());
+            System.out.println("Bot ID: " + jda.getSelfUser().getId());
+            System.out.println("Connected to " + jda.getGuilds().size() + " servers:");
+            jda.getGuilds().forEach(guild -> {
+                System.out.println("- " + guild.getName() + " (ID: " + guild.getId() + ")");
+                System.out.println("  Available channels:");
+                guild.getChannels().forEach(channel -> 
+                    System.out.println("  - " + channel.getName() + " (ID: " + channel.getId() + ")")
+                );
+            });
+        } catch (InterruptedException e) {
+            System.err.println("Failed to initialize bot: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         submissionTracker = new SubmissionTracker(leetCodeService, jda);
         
