@@ -38,4 +38,37 @@ test {
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
-} 
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': application.mainClass,
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+// Create a fat JAR with all dependencies
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    manifest {
+        attributes(
+            'Main-Class': application.mainClass,
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version
+        )
+    }
+    
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+}
+
+// Make the fatJar task run as part of the build
+build.dependsOn fatJar 

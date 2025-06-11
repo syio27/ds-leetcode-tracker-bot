@@ -1,1 +1,1 @@
-worker: java -Xmx256m -Dfile.encoding=UTF-8 -jar build/libs/*.jar 
+worker: java -Xmx256m -Dfile.encoding=UTF-8 -jar build/libs/*-all.jar 

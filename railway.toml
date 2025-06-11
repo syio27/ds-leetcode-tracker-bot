@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "./gradlew build -Dorg.gradle.daemon=false --no-daemon --no-parallel --stacktrace"
 
 [deploy]
-startCommand = "java -Xmx256m -Dfile.encoding=UTF-8 -jar build/libs/*.jar"
+startCommand = "java -Xmx256m -Dfile.encoding=UTF-8 -jar build/libs/*-all.jar"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
