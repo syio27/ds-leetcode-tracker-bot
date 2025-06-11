@@ -288,4 +288,35 @@ public class SubmissionTracker {
         }
         return channel;
     }
+
+    public Map<String, Integer> getTrackedUsersInServer(String guildId) {
+        EntityManager entityManager = DatabaseConfig.getEntityManagerFactory().createEntityManager();
+        Map<String, Integer> trackedUsers = new HashMap<>();
+        
+        try {
+            // Get all active users with their channel IDs eagerly loaded
+            List<TrackedUser> users = entityManager.createQuery(
+                "FROM TrackedUser u LEFT JOIN FETCH u.channelIds WHERE u.active = true",
+                TrackedUser.class
+            ).getResultList();
+            
+            // Filter channels by guild ID and count channels per user
+            for (TrackedUser user : users) {
+                long channelsInServer = user.getChannelIds().stream()
+                    .map(channelId -> jda.getChannelById(MessageChannel.class, channelId))
+                    .filter(channel -> channel != null && 
+                        channel instanceof net.dv8tion.jda.api.entities.channel.concrete.TextChannel &&
+                        ((net.dv8tion.jda.api.entities.channel.concrete.TextChannel) channel).getGuild().getId().equals(guildId))
+                    .count();
+                
+                if (channelsInServer > 0) {
+                    trackedUsers.put(user.getUsername(), (int) channelsInServer);
+                }
+            }
+            
+            return trackedUsers;
+        } finally {
+            entityManager.close();
+        }
+    }
 } 

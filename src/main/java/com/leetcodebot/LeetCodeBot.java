@@ -70,7 +70,8 @@ public class LeetCodeBot {
                 Commands.slash("track", "Start tracking a LeetCode user")
                         .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "username", "LeetCode username to track", true),
                 Commands.slash("untrack", "Stop tracking a LeetCode user")
-                        .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "username", "LeetCode username to untrack", true)
+                        .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "username", "LeetCode username to untrack", true),
+                Commands.slash("list-tracked", "List all tracked LeetCode users in this server")
         ).queue();
 
         // Start the keep-alive server
