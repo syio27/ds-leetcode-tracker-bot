@@ -37,4 +37,5 @@ hs_err_pid*
 .env
 *.properties
 !gradle/wrapper/gradle-wrapper.properties
-!src/main/resources/config.properties 
+!src/main/resources/config.properties
+!gradle.properties 

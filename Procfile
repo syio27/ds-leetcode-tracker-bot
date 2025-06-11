@@ -1,1 +1,1 @@
-worker: ./gradlew run --no-daemon 
+worker: java -Xmx256m -jar build/libs/*.jar 

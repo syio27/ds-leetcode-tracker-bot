@@ -1,8 +1,10 @@
 [phases.setup]
 nixPkgs = ['jdk17']
+cmds = ['mkdir -p /root/.gradle']
 
 [phases.build]
-cmds = ['./gradlew build']
+cmds = ['./gradlew build -Dorg.gradle.daemon=false --no-daemon --no-parallel --stacktrace']
 
 [start]
-cmd = './gradlew run --no-daemon' 
+cmd = 'java -Xmx256m -jar build/libs/*.jar'
+stopSignal = "SIGINT" 

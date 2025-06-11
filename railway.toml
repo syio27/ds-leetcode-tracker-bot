@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "./gradlew build"
+buildCommand = "./gradlew build -Dorg.gradle.daemon=false --no-daemon --no-parallel --stacktrace"
 
 [deploy]
-startCommand = "./gradlew run --no-daemon"
+startCommand = "java -Xmx256m -jar build/libs/*.jar"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
