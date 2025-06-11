@@ -18,8 +18,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DailyStatisticsService {
+    private static final Logger logger = LoggerFactory.getLogger(DailyStatisticsService.class);
     private final LeetCodeService leetCodeService;
     private final TrackedUserRepository userRepository;
     private final ProblemSolveHistoryRepository solveHistoryRepository;
@@ -37,6 +40,7 @@ public class DailyStatisticsService {
         
         // Schedule daily report at midnight
         scheduleDaily();
+        logger.info("DailyStatisticsService initialized");
     }
 
     public void trackUserInChannel(String username, MessageChannel channel) {
@@ -53,12 +57,22 @@ public class DailyStatisticsService {
 
     private void scheduleDaily() {
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-        LocalDateTime nextRun = now.toLocalDate().plusDays(1).atStartOfDay();
+        LocalDateTime nextRun = now.toLocalDate().plusDays(1).atTime(0, 20); // Set to 12:20 AM
         long initialDelay = nextRun.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - 
                           System.currentTimeMillis();
 
+        logger.info("Scheduling daily report. Current time: {}, Next run: {}, Initial delay: {} ms",
+            now, nextRun, initialDelay);
+
         scheduler.scheduleAtFixedRate(
-            this::sendDailyReports,
+            () -> {
+                try {
+                    logger.info("Starting daily report generation at {}", LocalDateTime.now());
+                    sendDailyReports();
+                } catch (Exception e) {
+                    logger.error("Error while generating daily report", e);
+                }
+            },
             initialDelay,
             TimeUnit.DAYS.toMillis(1),
             TimeUnit.MILLISECONDS
@@ -66,12 +80,16 @@ public class DailyStatisticsService {
     }
 
     private void sendDailyReports() {
+        logger.info("Entering sendDailyReports()");
         LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
         // Get all active users
         List<TrackedUser> activeUsers = userRepository.findAllActive();
+        logger.info("Found {} active users", activeUsers.size());
+        
         if (activeUsers.isEmpty()) {
+            logger.info("No active users found, skipping daily report");
             return;
         }
 
@@ -82,6 +100,8 @@ public class DailyStatisticsService {
         for (TrackedUser user : activeUsers) {
             List<ProblemSolveHistory> todaysSolutions = solveHistoryRepository.findByUserInTimeRange(
                 user, startOfDay, endOfDay);
+            
+            logger.info("User {} has {} solutions today", user.getUsername(), todaysSolutions.size());
 
             if (!todaysSolutions.isEmpty()) {
                 Map<String, List<Map<String, String>>> userStats = new HashMap<>();
@@ -99,7 +119,7 @@ public class DailyStatisticsService {
                         
                         userStats.get(difficulty).add(problemInfo);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        logger.error("Error getting problem difficulty for {}", solution.getProblemSlug(), e);
                     }
                 }
 
@@ -110,6 +130,7 @@ public class DailyStatisticsService {
 
         // Skip if no submissions
         if (totalSolvedCount.isEmpty()) {
+            logger.info("No submissions found for any user today, skipping daily report");
             return;
         }
 
@@ -120,13 +141,22 @@ public class DailyStatisticsService {
         Set<String> channelIds = activeUsers.stream()
             .flatMap(user -> user.getChannelIds().stream())
             .collect(Collectors.toSet());
+            
+        logger.info("Sending daily report to {} channels", channelIds.size());
 
         for (String channelId : channelIds) {
             MessageChannel channel = findChannelById(channelId);
             if (channel != null) {
-                channel.sendMessageEmbeds(report).queue();
+                logger.info("Sending report to channel {}", channelId);
+                channel.sendMessageEmbeds(report).queue(
+                    success -> logger.info("Successfully sent report to channel {}", channelId),
+                    error -> logger.error("Failed to send report to channel {}", channelId, error)
+                );
+            } else {
+                logger.error("Could not find channel with ID {}", channelId);
             }
         }
+        logger.info("Finished sending daily reports");
     }
 
     private List<MessageEmbed> createCombinedDailyReport(
