@@ -32,9 +32,13 @@ public class LeetCodeBot {
 
         System.out.println("Initializing Discord bot with token...");
         jda = JDABuilder.createDefault(token)
-                .enableIntents(net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MESSAGES,
-                             net.dv8tion.jda.api.requests.GatewayIntent.MESSAGE_CONTENT,
-                             net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MEMBERS)
+                .enableIntents(
+                    net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MESSAGES,
+                    net.dv8tion.jda.api.requests.GatewayIntent.MESSAGE_CONTENT,
+                    net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MEMBERS,
+                    net.dv8tion.jda.api.requests.GatewayIntent.DIRECT_MESSAGES,
+                    net.dv8tion.jda.api.requests.GatewayIntent.GUILD_MESSAGE_REACTIONS
+                )
                 .setMemberCachePolicy(net.dv8tion.jda.api.utils.MemberCachePolicy.ALL)
                 .build();
 
