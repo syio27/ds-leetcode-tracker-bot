@@ -64,14 +64,14 @@ public class DailyStatisticsService {
     private void scheduleDaily() {
         try {
             LocalDateTime now = LocalDateTime.now(timezone);
-            // Schedule for next midnight
-            LocalDateTime nextRun = now.toLocalDate().plusDays(1).atStartOfDay().atZone(timezone).toLocalDateTime();
+            LocalDateTime startOfDay = now.minusDays(1).toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = startOfDay.plusDays(1);
             
-            long initialDelay = nextRun.atZone(timezone).toInstant().toEpochMilli() - 
+            long initialDelay = endOfDay.atZone(timezone).toInstant().toEpochMilli() - 
                               System.currentTimeMillis();
 
             logger.info("Scheduling daily report. Current time: {}, Next run: {}, Initial delay: {} ms, Timezone: {}",
-                now, nextRun, initialDelay, timezone);
+                now, endOfDay, initialDelay, timezone);
 
             if (initialDelay < 0) {
                 logger.error("Initial delay is negative: {} ms. This should not happen!", initialDelay);
@@ -109,7 +109,8 @@ public class DailyStatisticsService {
 
     private void sendDailyReports() {
         logger.info("Entering sendDailyReports() at {}", LocalDateTime.now(timezone));
-        LocalDateTime startOfDay = LocalDateTime.now(timezone).toLocalDate().atStartOfDay();
+        LocalDateTime now = LocalDateTime.now(timezone);
+        LocalDateTime startOfDay = now.minusDays(1).toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
         EntityManager entityManager = null;
